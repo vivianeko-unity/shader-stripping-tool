@@ -58,8 +58,7 @@ namespace ShaderStrippingTool
             IList<ShaderCompilerData> variants
         )
         {
-            if (!shaderStrippingSettings) return;
-            Assert.IsNotNull(playerLog, "please add a player log");
+            if (!shaderStrippingSettings || !playerLog) return;
 
             if (shader.name.Contains("Hidden"))
             {
