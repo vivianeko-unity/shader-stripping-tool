@@ -37,6 +37,9 @@ namespace ShaderStrippingTool
 
             if (GUILayout.Button("Create settings asset"))
             {
+                if (!AssetDatabase.IsValidFolder("Assets/Shader Variants Stripping"))
+                    AssetDatabase.CreateFolder("Assets", "Shader Variants Stripping");
+                
                 shaderStrippingSettings = CreateInstance<ShaderStrippingSettings>();
                 AssetDatabase.CreateAsset(shaderStrippingSettings, SettingsPath);
                 AssetDatabase.SaveAssets();
@@ -72,8 +75,6 @@ namespace ShaderStrippingTool
         private static void Init()
         {
             GetWindow<ShaderStrippingWindow>();
-            if (!AssetDatabase.IsValidFolder("Assets/Shader Variants Stripping"))
-                AssetDatabase.CreateFolder("Assets", "Shader Variants Stripping");
         }
 
         private void ExploreKeywords()
