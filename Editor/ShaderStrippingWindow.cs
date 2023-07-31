@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,7 +17,6 @@ namespace ShaderStrippingTool
         private int previousAnalyzeType;
         private bool fixAllWarnings;
         private bool warningsOnly;
-        private bool strictKeywordsMatch;
         
         private readonly List<List<string>> disabledKeywords = new();
         private readonly List<List<string>> enabledKeywords = new();
@@ -86,7 +84,6 @@ namespace ShaderStrippingTool
 
             GUILayout.BeginHorizontal();
             warningsOnly = GUILayout.Toggle(warningsOnly, "Show warnings only");
-            strictKeywordsMatch = GUILayout.Toggle(strictKeywordsMatch, "Strict keywords match");
             fixAllWarnings = GUILayout.Button("Fix all warnings");
             GUILayout.EndHorizontal();
 
@@ -186,37 +183,22 @@ namespace ShaderStrippingTool
 
                 var keywordName = localKeyword.name;
 
-                if (strictKeywordsMatch)
+                switch (localKeyword.isOverridable)
                 {
-                    var keywordEnabled =
-                        localKeyword.isOverridable && Shader.IsKeywordEnabled(keywordName)
-                            ? Shader.IsKeywordEnabled(keywordName)
-                            : materials[index].IsKeywordEnabled(localKeyword);
-
-                    if (keywordEnabled)
+                    case true when Shader.IsKeywordEnabled(keywordName)
+                                   && !shaderStrippingSettings.GlobalKeywords.Contains(keywordName):
+                        shaderStrippingSettings.GlobalKeywords.Add(keywordName);
+                        break;
+                    case true when materials[index].IsKeywordEnabled(localKeyword)
+                                   && !shaderStrippingSettings.GlobalKeywords.Contains(keywordName):
                         enabledKeywords[index].Add(keywordName);
-                    else
+                        break;
+                    case false when materials[index].IsKeywordEnabled(localKeyword):
+                        enabledKeywords[index].Add(keywordName);
+                        break;
+                    case false:
                         disabledKeywords[index].Add(keywordName);
-                }
-                else
-                {
-                    switch (localKeyword.isOverridable)
-                    {
-                        case true when Shader.IsKeywordEnabled(keywordName)
-                                       && !shaderStrippingSettings.GlobalKeywords.Contains(keywordName):
-                            shaderStrippingSettings.GlobalKeywords.Add(keywordName);
-                            break;
-                        case true when materials[index].IsKeywordEnabled(localKeyword)
-                                       && !shaderStrippingSettings.GlobalKeywords.Contains(keywordName):
-                            enabledKeywords[index].Add(keywordName);
-                            break;
-                        case false when materials[index].IsKeywordEnabled(localKeyword):
-                            enabledKeywords[index].Add(keywordName);
-                            break;
-                        case false:
-                            disabledKeywords[index].Add(keywordName);
-                            break;
-                    }
+                        break;
                 }
             }
         }
@@ -224,54 +206,37 @@ namespace ShaderStrippingTool
         //check if blacklist svc contains variants with used keywords
         private void CheckSvc(int index)
         {
-            if (strictKeywordsMatch)
+            var localKeywordsCombinations = enabledKeywords[index].Count > 0
+                ? enabledKeywords[index].GetAllCombinations()
+                : new List<List<string>> { new() };
+
+            var allCombinations = new List<string>();
+
+            foreach (var global in shaderStrippingSettings.GlobalKeywordsCombinations)
             {
-                foreach (var variantToRemove in shaderStrippingSettings.PassTypes.Select(pass =>
-                             new ShaderVariantCollection.ShaderVariant
-                             {
-                                 shader = materials[index].shader,
-                                 keywords = enabledKeywords[index].ToArray(),
-                                 passType = pass
-                             }).Where(variantToRemove =>
-                             shaderStrippingSettings.SvcBlacklist.Contains(variantToRemove)))
+                foreach (var local in localKeywordsCombinations)
                 {
-                    variantsToRemove[index].Add(variantToRemove);
+                    var result = new List<string>();
+                    result.AddRange(global);
+                    result.AddRange(local);
+                    var t = string.Join(" ", result);
+                    if (!allCombinations.Contains(t)) allCombinations.Add(t);
                 }
             }
-            else
+
+            foreach (var t in allCombinations)
             {
-                var localKeywordsCombinations = enabledKeywords[index].Count > 0
-                    ? enabledKeywords[index].GetAllCombinations()
-                    : new List<List<string>> { new() };
-
-                var allCombinations = new List<string>();
-                
-                foreach (var global in shaderStrippingSettings.GlobalKeywordsCombinations)
+                var combinationKeywords = t.Split(" ");
+                foreach (var pass in shaderStrippingSettings.PassTypes)
                 {
-                    foreach (var local in localKeywordsCombinations)
+                    var variantToRemove = new ShaderVariantCollection.ShaderVariant
                     {
-                        var result = new List<string>();
-                        result.AddRange(global);
-                        result.AddRange(local);
-                        var t = string.Join(" ", result);
-                        if (!allCombinations.Contains(t)) allCombinations.Add(t);
-                    }
-                }
-
-                foreach (var t in allCombinations)
-                {
-                    var combinationKeywords = t.Split(" ");
-                    foreach (var variantToRemove in shaderStrippingSettings.PassTypes.Select(pass =>
-                                 new ShaderVariantCollection.ShaderVariant
-                                 {
-                                     shader = materials[index].shader,
-                                     keywords = combinationKeywords,
-                                     passType = pass
-                                 }).Where(variantToRemove =>
-                                 shaderStrippingSettings.SvcBlacklist.Contains(variantToRemove)))
-                    {
+                        shader = materials[index].shader,
+                        keywords = combinationKeywords,
+                        passType = pass
+                    };
+                    if (shaderStrippingSettings.SvcBlacklist.Contains(variantToRemove))
                         variantsToRemove[index].Add(variantToRemove);
-                    }
                 }
             }
         }
@@ -318,13 +283,13 @@ namespace ShaderStrippingTool
             GUILayout.BeginVertical("box");
             
             //show Keywords in use
-            GUILayout.Label(strictKeywordsMatch? "All enabled keywords:": "Enabled local keywords:", blue);
+            GUILayout.Label("Enabled local keywords:", blue);
             GUILayout.TextField(enabledKeywords[index].Count > 0
                 ? string.Join(n, enabledKeywords[index])
                 : "<no keywords>");
 
             //show Keywords not in use
-            GUILayout.Label(strictKeywordsMatch?"All disabled keywords:" : "Disabled local keywords:", blue);
+            GUILayout.Label("Disabled local keywords:", blue);
             GUILayout.TextField(disabledKeywords[index].Count > 0
                 ? string.Join(n, disabledKeywords[index])
                 : "<no keywords>");
