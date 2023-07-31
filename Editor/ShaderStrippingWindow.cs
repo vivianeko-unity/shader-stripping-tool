@@ -72,6 +72,8 @@ namespace ShaderStrippingTool
         private static void Init()
         {
             GetWindow<ShaderStrippingWindow>();
+            if (!AssetDatabase.IsValidFolder("Assets/Shader Variants Stripping"))
+                AssetDatabase.CreateFolder("Assets", "Shader Variants Stripping");
         }
 
         private void ExploreKeywords()
