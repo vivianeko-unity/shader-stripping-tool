@@ -10,8 +10,8 @@ namespace ShaderStrippingTool
         private const string SettingsPath = "Assets/Shader Variants Stripping/Shader_Stripping_Settings Asset.asset";
         public static ShaderStrippingSettings shaderStrippingSettings;
         
-        private readonly int[] analyzeTypes = { 1, 2, 3, 4 };
-        private readonly string[] analyzeTypesNames = { "Project", "Runtime", "Material", "Shader" };
+        private readonly int[] analyzeTypes = { 1, 2, 3 };
+        private readonly string[] analyzeTypesNames = { "Project", "Material", "Shader" };
         private bool analyze;
         private int analyzeType = 1;
         private int previousAnalyzeType;
@@ -104,17 +104,13 @@ namespace ShaderStrippingTool
                     FindProjectMaterials();
                     break;
 
-                case 2 when analyze:
-                    FindRuntimeMaterials();
-                    break;
-
-                case 3:
+                case 2:
                     selectedMaterial =
                         EditorGUILayout.ObjectField(selectedMaterial, typeof(Material), false) as Material;
                     if (analyze && selectedMaterial) materials.Add(selectedMaterial);
                     break;
 
-                case 4:
+                case 3:
                     selectedShader =
                         EditorGUILayout.ObjectField(selectedShader, typeof(Shader), false) as Shader;
                     if (analyze && selectedShader) FindSelectedShader();
@@ -126,29 +122,19 @@ namespace ShaderStrippingTool
 
         private void FindProjectMaterials()
         {
-            var allMaterials = AssetDatabase.FindAssets("t:Material");
-            for (var i = 0; i < allMaterials.Length; i++)
+            var allMaterials =  Resources.FindObjectsOfTypeAll<Material>();
+            foreach (var mat in allMaterials)
             {
-                allMaterials[i] = AssetDatabase.GUIDToAssetPath(allMaterials[i]);
-                var selected = AssetDatabase.LoadAssetAtPath(allMaterials[i], typeof(Material)) as Material;
-                materials.Add(selected);
+                if(!mat.shader.name.Contains("Hidden")) materials.Add(mat);
             }
-        }
-
-        private void FindRuntimeMaterials()
-        {
-            var sceneMaterials = FindObjectsOfType<Material>();
-            materials.AddRange(sceneMaterials);
         }
 
         private void FindSelectedShader()
         {
-            var allMaterials = AssetDatabase.FindAssets("t:Material");
-            for (var i = 0; i < allMaterials.Length; i++)
+            var allMaterials =  Resources.FindObjectsOfTypeAll<Material>();
+            foreach (var mat in allMaterials)
             {
-                allMaterials[i] = AssetDatabase.GUIDToAssetPath(allMaterials[i]);
-                var selected = AssetDatabase.LoadAssetAtPath(allMaterials[i], typeof(Material)) as Material;
-                if (selected!.shader == selectedShader) materials.Add(selected);
+                if (mat!.shader == selectedShader) materials.Add(mat);
             }
         }
 
