@@ -17,6 +17,7 @@ namespace ShaderStrippingTool
         private int previousAnalyzeType;
         private bool fixAllWarnings;
         private bool warningsOnly;
+        private bool strictMatchLocalKeywords;
         
         private readonly List<List<string>> disabledKeywords = new();
         private readonly List<List<string>> enabledKeywords = new();
@@ -84,6 +85,7 @@ namespace ShaderStrippingTool
 
             GUILayout.BeginHorizontal();
             warningsOnly = GUILayout.Toggle(warningsOnly, "Show warnings only");
+            strictMatchLocalKeywords = GUILayout.Toggle(strictMatchLocalKeywords, "Strict local keywords match");
             fixAllWarnings = GUILayout.Button("Fix all warnings");
             GUILayout.EndHorizontal();
 
@@ -122,6 +124,7 @@ namespace ShaderStrippingTool
 
         private void FindProjectMaterials()
         {
+            Resources.LoadAll<Material>("");
             var allMaterials =  Resources.FindObjectsOfTypeAll<Material>();
             foreach (var mat in allMaterials)
             {
@@ -131,6 +134,7 @@ namespace ShaderStrippingTool
 
         private void FindSelectedShader()
         {
+            Resources.LoadAll<Material>("");
             var allMaterials =  Resources.FindObjectsOfTypeAll<Material>();
             foreach (var mat in allMaterials)
             {
@@ -144,6 +148,7 @@ namespace ShaderStrippingTool
             for (var i = 0; i < materials.Count; i++)
             {
                 if(materials[i] == null) continue;
+                
                 if (analyze)
                 {
                     var counter = i * 100f / materials.Count / 100f;
@@ -189,13 +194,16 @@ namespace ShaderStrippingTool
                                    && !shaderStrippingSettings.GlobalKeywords.Contains(keywordName):
                         shaderStrippingSettings.GlobalKeywords.Add(keywordName);
                         break;
+                    
                     case true when materials[index].IsKeywordEnabled(localKeyword)
                                    && !shaderStrippingSettings.GlobalKeywords.Contains(keywordName):
                         enabledKeywords[index].Add(keywordName);
                         break;
+                    
                     case false when materials[index].IsKeywordEnabled(localKeyword):
                         enabledKeywords[index].Add(keywordName);
                         break;
+                    
                     case false:
                         disabledKeywords[index].Add(keywordName);
                         break;
@@ -214,13 +222,24 @@ namespace ShaderStrippingTool
 
             foreach (var global in shaderStrippingSettings.GlobalKeywordsCombinations)
             {
-                foreach (var local in localKeywordsCombinations)
+                if (strictMatchLocalKeywords)
                 {
                     var result = new List<string>();
                     result.AddRange(global);
-                    result.AddRange(local);
+                    result.AddRange(enabledKeywords[index]);
                     var t = string.Join(" ", result);
                     if (!allCombinations.Contains(t)) allCombinations.Add(t);
+                }
+                else
+                {
+                    foreach (var local in localKeywordsCombinations)
+                    {
+                        var result = new List<string>();
+                        result.AddRange(global);
+                        result.AddRange(local);
+                        var t = string.Join(" ", result);
+                        if (!allCombinations.Contains(t)) allCombinations.Add(t);
+                    }
                 }
             }
 

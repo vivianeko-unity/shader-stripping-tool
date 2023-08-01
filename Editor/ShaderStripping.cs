@@ -4,7 +4,6 @@ using System.IO;
 using UnityEditor.Build;
 using UnityEditor.Rendering;
 using UnityEngine;
-using UnityEngine.Assertions;
 using UnityEngine.Rendering;
 
 namespace ShaderStrippingTool
