@@ -49,7 +49,7 @@ namespace ShaderStrippingTool
             shadersPassed = new IShaderPassed[] { new PlayerLogPassed(playerLog) };
         }
 
-        public int callbackOrder { get; } = 0;
+        public int callbackOrder { get; }
 
         public void OnProcessShader(
             Shader shader,
