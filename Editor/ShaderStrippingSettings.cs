@@ -94,7 +94,8 @@ namespace ShaderStrippingTool
 
             var playerLogPath = AssetDatabase.GetAssetPath(playerLog);
             var allLines = File.ReadAllLines(playerLogPath);
-            var filteredLines = allLines.Where(x => x.Contains("Compiled shader: "));
+            var filteredLines = allLines.Where(x => x.Contains("Compiled shader: "))
+                .Select(x => x[x.IndexOf("Compiled shader: ", StringComparison.Ordinal)..]);
             File.WriteAllLines(playerLogPath, filteredLines);
 
             try
