@@ -17,13 +17,15 @@ namespace ShaderStrippingTool
         private int previousAnalyzeType;
         private bool fixAllWarnings;
         private bool warningsOnly;
-        private bool strictMatchLocalKeywords;
+        private bool strictMatchLocalKeywords = true;
+        private bool strictMatchGlobalKeywords = true;
         
         private readonly List<List<string>> disabledKeywords = new();
         private readonly List<List<string>> enabledKeywords = new();
         private readonly List<bool> expandMaterials = new();
         private readonly List<Material> materials = new();
         private readonly List<List<ShaderVariantCollection.ShaderVariant>> variantsToRemove = new();
+        private readonly List<List<ShaderVariantCollection.ShaderVariant>> variantsRemoved = new();
         private Material selectedMaterial;
         private Shader selectedShader;
 
@@ -86,6 +88,7 @@ namespace ShaderStrippingTool
             GUILayout.BeginHorizontal();
             warningsOnly = GUILayout.Toggle(warningsOnly, "Show warnings only");
             strictMatchLocalKeywords = GUILayout.Toggle(strictMatchLocalKeywords, "Strict local keywords match");
+            strictMatchGlobalKeywords = GUILayout.Toggle(strictMatchGlobalKeywords, "Strict global keywords match");
             fixAllWarnings = GUILayout.Button("Fix all warnings");
             GUILayout.EndHorizontal();
 
@@ -98,6 +101,7 @@ namespace ShaderStrippingTool
                 enabledKeywords.Clear();
                 disabledKeywords.Clear();
                 variantsToRemove.Clear();
+                variantsRemoved.Clear();
             }
 
             switch (analyzeType)
@@ -157,6 +161,7 @@ namespace ShaderStrippingTool
                     enabledKeywords.Add(new List<string>());
                     disabledKeywords.Add(new List<string>());
                     variantsToRemove.Add(new List<ShaderVariantCollection.ShaderVariant>());
+                    variantsRemoved.Add(new List<ShaderVariantCollection.ShaderVariant>());
                     AnalyzeKeywords(i);
                     CheckSvc(i);
                 }
@@ -211,8 +216,7 @@ namespace ShaderStrippingTool
             }
         }
 
-        //check if blacklist svc contains variants with used keywords
-        private void CheckSvc(int index)
+        private List<string> FindCombinations(int index)
         {
             var localKeywordsCombinations = enabledKeywords[index].Count > 0
                 ? enabledKeywords[index].GetAllCombinations()
@@ -220,12 +224,12 @@ namespace ShaderStrippingTool
 
             var allCombinations = new List<string>();
 
-            foreach (var global in shaderStrippingSettings.GlobalKeywordsCombinations)
+            if (strictMatchGlobalKeywords)
             {
                 if (strictMatchLocalKeywords)
                 {
                     var result = new List<string>();
-                    result.AddRange(global);
+                    result.AddRange(shaderStrippingSettings.GlobalKeywords);
                     result.AddRange(enabledKeywords[index]);
                     var t = string.Join(" ", result);
                     if (!allCombinations.Contains(t)) allCombinations.Add(t);
@@ -235,13 +239,46 @@ namespace ShaderStrippingTool
                     foreach (var local in localKeywordsCombinations)
                     {
                         var result = new List<string>();
-                        result.AddRange(global);
+                        result.AddRange(shaderStrippingSettings.GlobalKeywords);
                         result.AddRange(local);
                         var t = string.Join(" ", result);
                         if (!allCombinations.Contains(t)) allCombinations.Add(t);
                     }
                 }
             }
+            else
+            {
+                foreach (var global in shaderStrippingSettings.GlobalKeywordsCombinations)
+                {
+                    if (strictMatchLocalKeywords)
+                    {
+                        var result = new List<string>();
+                        result.AddRange(global);
+                        result.AddRange(enabledKeywords[index]);
+                        var t = string.Join(" ", result);
+                        if (!allCombinations.Contains(t)) allCombinations.Add(t);
+                    }
+                    else
+                    {
+                        foreach (var local in localKeywordsCombinations)
+                        {
+                            var result = new List<string>();
+                            result.AddRange(global);
+                            result.AddRange(local);
+                            var t = string.Join(" ", result);
+                            if (!allCombinations.Contains(t)) allCombinations.Add(t);
+                        }
+                    }
+                }
+            }
+
+            return allCombinations;
+        }
+        
+        //check if blacklist svc contains variants with used keywords
+        private void CheckSvc(int index)
+        {
+            var allCombinations = FindCombinations(index);
 
             foreach (var t in allCombinations)
             {
@@ -254,8 +291,11 @@ namespace ShaderStrippingTool
                         keywords = combinationKeywords,
                         passType = pass
                     };
+
                     if (shaderStrippingSettings.SvcBlacklist.Contains(variantToRemove))
                         variantsToRemove[index].Add(variantToRemove);
+                    else if (shaderStrippingSettings.SvcCompiled.Contains(variantToRemove))
+                        variantsRemoved[index].Add(variantToRemove);
                 }
             }
         }
@@ -263,8 +303,16 @@ namespace ShaderStrippingTool
         private void UpdateGUI(int index, bool existInSvc)
         {
             var n = Environment.NewLine;
-            var warning = new GUIStyle(EditorStyles.foldoutHeader) { normal = { textColor = Color.red } };
-            var blue = new GUIStyle(EditorStyles.label) { normal = { textColor = Color.cyan } };
+            var warning = new GUIStyle(EditorStyles.foldoutHeader)
+            {
+                normal = { textColor = Color.red },
+                onNormal = {textColor = Color.red}
+            };
+            var blue = new GUIStyle(EditorStyles.label)
+            {
+                normal = { textColor = Color.cyan },
+                hover = { textColor = Color.cyan },
+            };
 
             GUILayout.Space(10);
 
@@ -276,6 +324,7 @@ namespace ShaderStrippingTool
             _ = EditorGUILayout.ObjectField(materials[index].shader, typeof(Shader), false) as Shader;
             GUILayout.EndHorizontal();
 
+            var removed = variantsRemoved[index];
             //show status in SVC
             if (existInSvc)
             {
@@ -295,11 +344,18 @@ namespace ShaderStrippingTool
                 GUILayout.EndHorizontal();
 
                 if (expandMaterials[index])
+                {
                     for (var i = 0; i < toRemove.Count; i++)
                         GUILayout.TextArea(toRemove[i].passType + " " + string.Join(" ", toRemove[i].keywords));
+                }
+
             }
 
             GUILayout.BeginVertical("box");
+            
+            GUILayout.Label("vairants:", blue);
+            for (var i = 0; i < removed.Count; i++)
+                GUILayout.TextArea(removed[i].passType + " " + string.Join(" ", removed[i].keywords));
             
             //show Keywords in use
             GUILayout.Label("Enabled local keywords:", blue);

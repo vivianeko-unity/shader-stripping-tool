@@ -89,8 +89,10 @@ namespace ShaderStrippingTool
                         foreach (var key in variant.keywords)
                             if (!compiledKeywords.Contains(key))
                                 compiledKeywords.Add(key);
+                        
                         svcCompiled.Add(variant);
                         _ = isPassed ? svcWhitelist.Add(variant) : svcBlacklist.Add(variant);
+                        
                         report += "collected shader: " + shader.name + ", pass: " + variant.passType
                                   + ", stage: " + snippet.shaderType
                                   + ", keywords: " + string.Join(" ", variant.keywords) + n;

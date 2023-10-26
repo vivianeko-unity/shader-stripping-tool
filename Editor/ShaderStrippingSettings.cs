@@ -14,7 +14,11 @@ namespace ShaderStrippingTool
         StripWithWhitelist,
         StripWithBlacklist
     }
-
+    /// <summary>
+    ///     Scriptable Object to handle all shader stripping settings
+    ///     Show all collected pass types and keywords
+    ///     Show detected global keywords and modify them
+    /// </summary>
     public class ShaderStrippingSettings : ScriptableObject
     {
         private const string SvcBlacklistPath = "Assets/Shader Variants Stripping/SVC_Blacklist.shadervariants";
