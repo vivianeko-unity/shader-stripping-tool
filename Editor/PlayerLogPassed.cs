@@ -14,7 +14,7 @@ namespace ShaderStrippingTool
 
     public readonly struct ShaderInfo : IEquatable<ShaderInfo>
     {
-        private const string Unnamed = "unnamed";
+        private const string Unnamed = "Unnamed";
         private static readonly Regex PassIndexRegex = new(@"pass [\d]*");
 
         private readonly string shaderName;
